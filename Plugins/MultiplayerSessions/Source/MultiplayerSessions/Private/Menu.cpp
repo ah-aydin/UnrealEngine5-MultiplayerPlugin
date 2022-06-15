@@ -8,10 +8,11 @@
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
 
-void UMenu::MenuSetup(int32 NumberPublicConnections, FString TypeOfMatch)
+void UMenu::MenuSetup(int32 NumberPublicConnections, FString TypeOfMatch, FString LobbyPath)
 {
 	NumPublicConnections = NumberPublicConnections;
 	MatchType = TypeOfMatch;
+	PathToLobby = FString::Printf(TEXT("%s?listen"), *LobbyPath);
 
 	AddToViewport();
 	SetVisibility(ESlateVisibility::Visible);
@@ -87,11 +88,12 @@ void UMenu::OnCreateSession(bool bWasSuccessful)
 			);
 		}
 
-		UWorld* World = GetWorld();
+		MultiplayerSessionsSubsystem->StartSession();
+		/*UWorld* World = GetWorld();
 		if (World)
 		{
 			World->ServerTravel("/Game/ThirdPerson/Maps/Lobby?listen");
-		}
+		}*/
 	}
 	else
 	{
@@ -103,6 +105,7 @@ void UMenu::OnCreateSession(bool bWasSuccessful)
 				FColor::Yellow,
 				FString(TEXT("Session was not created"))
 			);
+			EnableButtons();
 		}
 	}
 }
@@ -127,6 +130,10 @@ void UMenu::OnFindSessions(const TArray<FOnlineSessionSearchResult>& SessionResu
 			}
 		}
 	}
+	if (!bWasSuccessful || SessionResults.Num() <= 0)
+	{
+		EnableButtons();
+	}
 }
 
 void UMenu::OnJoinSession(EOnJoinSessionCompleteResult::Type Result)
@@ -147,6 +154,11 @@ void UMenu::OnJoinSession(EOnJoinSessionCompleteResult::Type Result)
 			}
 		}
 	}
+
+	if (Result != EOnJoinSessionCompleteResult::Success)
+	{
+		EnableButtons();
+	}
 }
 
 void UMenu::OnDestorySession(bool bWasSuccessful)
@@ -155,10 +167,21 @@ void UMenu::OnDestorySession(bool bWasSuccessful)
 
 void UMenu::OnStartSession(bool bWasSuccessful)
 {
+	if (!bWasSuccessful)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->ServerTravel(PathToLobby);
+	}
 }
 
 void UMenu::HostButtonClicked()
 {
+	DisableButtons();
 	if (MultiplayerSessionsSubsystem)
 	{
 		MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
@@ -167,10 +190,23 @@ void UMenu::HostButtonClicked()
 
 void UMenu::JoinButtonClicked()
 {
+	DisableButtons();
 	if (MultiplayerSessionsSubsystem)
 	{
 		MultiplayerSessionsSubsystem->FindSessions(10000);
 	}
+}
+
+void UMenu::EnableButtons()
+{
+	HostButton->SetIsEnabled(true);
+	JoinButton->SetIsEnabled(true);
+}
+
+void UMenu::DisableButtons()
+{
+	HostButton->SetIsEnabled(false);
+	JoinButton->SetIsEnabled(false);
 }
 
 void UMenu::MenuTearDown()
